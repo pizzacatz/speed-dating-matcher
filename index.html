@@ -2,76 +2,136 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Speed Dating Matcher</title>
   <style>
+    :root {
+      --bg: #121212;
+      --card-bg: #1e1e1e;
+      --text: #e0e0e0;
+      --input-bg: #2e2e2e;
+      --btn-bg: #333;
+      --btn-hover: #444;
+      --accent: #6200ee;
+    }
+    * { box-sizing: border-box; }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f0f0f0;
-      padding: 20px;
       margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
     }
     .container {
+      width: 100%;
       max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
-    h1, h3 {
+    h1 {
+      margin-top: 0;
+      font-size: 1.8rem;
+      text-align: center;
+      color: var(--accent);
+    }
+    h3 {
+      margin-bottom: 8px;
+      font-size: 1.2rem;
       text-align: center;
     }
-    textarea {
+    label {
+      display: block;
+      margin: 12px 0 4px;
+    }
+    textarea, pre {
       width: 100%;
-      height: 100px;
-      margin-bottom: 10px;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid #333;
+      border-radius: 6px;
       padding: 10px;
-      box-sizing: border-box;
+      font-family: inherit;
       resize: vertical;
     }
-    button {
+    textarea {
+      height: 100px;
+    }
+    pre {
+      height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin: 0;
+    }
+    .btn {
+      display: inline-block;
+      background: var(--btn-bg);
+      color: var(--text);
+      border: none;
+      border-radius: 6px;
       padding: 10px 20px;
-      font-size: 16px;
-      margin: 5px;
+      font-size: 1rem;
       cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      transition: background .2s;
+      margin: 8px 4px;
     }
-    .hidden {
-      display: none;
+    .btn:hover {
+      background: var(--btn-hover);
     }
+    .hidden { display: none; }
+    #questionPanel p {
+      margin-top: 8px;
+      font-size: 0.875rem;
+      text-align: center;
+      color: #aaa;
+    }
+
     @media (max-width: 600px) {
-      .container { padding: 10px; }
-      button { width: 100%; margin: 5px 0; }
+      .container { padding: 16px; }
+      .btn { width: 100%; margin: 6px 0; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Speed Dating Matcher</h1>
+
     <div id="inputPanel">
       <h3>Enter Attendees</h3>
-      <label for="menInput">List of Men (one per line):</label>
-      <textarea id="menInput" placeholder="Enter names here"></textarea>
-      <label for="womenInput">List of Women (one per line):</label>
-      <textarea id="womenInput" placeholder="Enter names here"></textarea>
-      <button id="startBtn">Start Matching</button>
+      <label for="menInput">Men (one per line):</label>
+      <textarea id="menInput" placeholder="Alexander thegreat@gmail.com"></textarea>
+      <label for="womenInput">Women (one per line):</label>
+      <textarea id="womenInput" placeholder="Alice wonderlandcaterpillar@gmail.com"></textarea>
+      <div style="text-align:center; margin-top:16px;">
+        <button id="startBtn" class="btn">Start Matching</button>
+      </div>
     </div>
 
     <div id="questionPanel" class="hidden">
       <h3 id="questionText"></h3>
       <div style="text-align:center;">
-        <button id="yesBtn">Yes</button>
-        <button id="noBtn">No</button>
+        <button id="yesBtn" class="btn">Yes</button>
+        <button id="noBtn" class="btn">No</button>
       </div>
-      <p style="text-align:center; font-size:14px;">(Use LEFT arrow for Yes and RIGHT arrow for No)</p>
+      <p>(Use ← for Yes and → for No)</p>
     </div>
 
     <div id="outputPanel" class="hidden">
-      <h3>Matches & Likes Overview:</h3>
-      <textarea id="matchesOutput" readonly style="height:300px;"></textarea>
+      <h3>Matches & Likes Overview</h3>
+      <pre id="matchesOutput"></pre>
     </div>
   </div>
 
   <script>
+    // DOM refs
     const startBtn = document.getElementById('startBtn');
     const inputPanel = document.getElementById('inputPanel');
     const questionPanel = document.getElementById('questionPanel');
@@ -81,112 +141,124 @@
     const noBtn = document.getElementById('noBtn');
     const matchesOutput = document.getElementById('matchesOutput');
 
+    // State
     let men = [], women = [];
-    let currentRound = 1, currentManIndex = 0, currentWomanIndex = 0;
+    let round = 1, mi = 0, wi = 0;
     let menLikes = [], womenLikes = [];
 
     function initLikes() {
-      menLikes = Array.from({length: men.length},
-        () => Array(women.length).fill(false)
-      );
-      womenLikes = Array.from({length: women.length},
-        () => Array(men.length).fill(false)
-      );
+      menLikes = men.map(() => women.map(() => false));
+      womenLikes = women.map(() => men.map(() => false));
     }
 
-    startBtn.addEventListener('click', () => {
+    startBtn.onclick = () => {
       men = document.getElementById('menInput').value
-              .split('\n').map(s=>s.trim()).filter(s=>s);
+              .split('\n').map(s=>s.trim()).filter(Boolean);
       women = document.getElementById('womenInput').value
-                .split('\n').map(s=>s.trim()).filter(s=>s);
-      if(!men.length||!women.length) {
-        alert("Enter at least one name in each list."); return;
+                .split('\n').map(s=>s.trim()).filter(Boolean);
+      if (!men.length || !women.length) {
+        alert('Please enter at least one name in each list.');
+        return;
       }
       initLikes();
       inputPanel.classList.add('hidden');
       questionPanel.classList.remove('hidden');
-      currentRound=1; currentManIndex=0; currentWomanIndex=0;
-      askNextQuestion();
-    });
+      round = 1; mi = 0; wi = 0;
+      nextQuestion();
+    };
 
-    function askNextQuestion(){
-      if(currentRound===1){
-        if(currentManIndex<men.length){
-          if(currentWomanIndex<women.length){
+    function nextQuestion() {
+      if (round === 1) {
+        if (mi < men.length) {
+          if (wi < women.length) {
             questionText.textContent =
-              `Does ${men[currentManIndex]} like ${women[currentWomanIndex]}?`;
+              `Does ${men[mi]} like ${women[wi]}?`;
           } else {
-            currentManIndex++; currentWomanIndex=0;
-            askNextQuestion();
+            mi++; wi = 0; nextQuestion();
           }
         } else {
-          currentRound=2; currentWomanIndex=0; currentManIndex=0;
-          askNextQuestion();
+          round = 2; wi = 0; mi = 0; nextQuestion();
         }
       } else {
-        if(currentWomanIndex<women.length){
-          if(currentManIndex<men.length){
+        if (wi < women.length) {
+          if (mi < men.length) {
             questionText.textContent =
-              `Does ${women[currentWomanIndex]} like ${men[currentManIndex]}?`;
+              `Does ${women[wi]} like ${men[mi]}?`;
           } else {
-            currentWomanIndex++; currentManIndex=0;
-            askNextQuestion();
+            wi++; mi = 0; nextQuestion();
           }
         } else {
-          computeMatchesAndLikes();
+          showResults();
         }
       }
     }
 
-    function recordResponse(resp){
-      if(currentRound===1){
-        menLikes[currentManIndex][currentWomanIndex]=resp;
-        currentWomanIndex++;
+    function record(resp) {
+      if (round === 1) {
+        menLikes[mi][wi] = resp; wi++;
       } else {
-        womenLikes[currentWomanIndex][currentManIndex]=resp;
-        currentManIndex++;
+        womenLikes[wi][mi] = resp; mi++;
       }
-      askNextQuestion();
+      nextQuestion();
     }
 
-    yesBtn.onclick  = ()=>recordResponse(true);
-    noBtn.onclick   = ()=>recordResponse(false);
+    yesBtn.onclick = () => record(true);
+    noBtn.onclick = () => record(false);
     document.addEventListener('keydown', e => {
-      if(!questionPanel.classList.contains('hidden')){
-        if(e.key==='ArrowLeft')  recordResponse(true);
-        if(e.key==='ArrowRight') recordResponse(false);
+      if (!questionPanel.classList.contains('hidden')) {
+        if (e.key === 'ArrowLeft')  record(true);
+        if (e.key === 'ArrowRight') record(false);
       }
     });
 
-    function computeMatchesAndLikes(){
-      let out="";
-      // FOR MEN
-      out += "— Men’s Section —\n";
+    function showResults() {
+      let out = '— Men’s Section —\n\n';
       men.forEach((m, i) => {
-        const mutual = [], likedBy = [];
+        out += `${m}\n`;
+        out += `  Mutual:\n`;
+        let mutual = [];
         women.forEach((w, j) => {
-          if(menLikes[i][j] && womenLikes[j][i]) mutual.push(w);
-          if(womenLikes[j][i])                likedBy.push(w);
+          if (menLikes[i][j] && womenLikes[j][i]) mutual.push(w);
         });
-        out += `${m}\n  Mutual:   ${mutual.length ? mutual.join(", ") : "None"}\n`;
-        out += `  Liked by: ${likedBy.length? likedBy.join(", ") : "None"}\n\n`;
+        (mutual.length ? mutual : ['None']).forEach(w => {
+          out += `    ${w}\n`;
+        });
+        out += `  Liked by:\n`;
+        let likedBy = [];
+        women.forEach((w, j) => {
+          if (womenLikes[j][i]) likedBy.push(w);
+        });
+        (likedBy.length ? likedBy : ['None']).forEach(w => {
+          out += `    ${w}\n`;
+        });
+        out += '\n';
       });
 
-      // FOR WOMEN
-      out += "— Women’s Section —\n";
+      out += '— Women’s Section —\n\n';
       women.forEach((w, j) => {
-        const mutual = [], likedBy = [];
+        out += `${w}\n`;
+        out += `  Mutual:\n`;
+        let mutual = [];
         men.forEach((m, i) => {
-          if(menLikes[i][j] && womenLikes[j][i]) mutual.push(m);
-          if(menLikes[i][j])                  likedBy.push(m);
+          if (menLikes[i][j] && womenLikes[j][i]) mutual.push(m);
         });
-        out += `${w}\n  Mutual:   ${mutual.length ? mutual.join(", ") : "None"}\n`;
-        out += `  Liked by: ${likedBy.length? likedBy.join(", ") : "None"}\n\n`;
+        (mutual.length ? mutual : ['None']).forEach(m => {
+          out += `    ${m}\n`;
+        });
+        out += `  Liked by:\n`;
+        let likedBy = [];
+        men.forEach((m, i) => {
+          if (menLikes[i][j]) likedBy.push(m);
+        });
+        (likedBy.length ? likedBy : ['None']).forEach(m => {
+          out += `    ${m}\n`;
+        });
+        out += '\n';
       });
 
       questionPanel.classList.add('hidden');
       outputPanel.classList.remove('hidden');
-      matchesOutput.value = out.trim();
+      matchesOutput.textContent = out.trim();
     }
   </script>
 </body>
