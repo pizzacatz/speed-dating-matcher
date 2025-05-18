@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Speed Dating Matcher</title>
+  <style>
+    /* Base styling and layout */
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h3 {
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-bottom: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    .hidden {
+      display: none;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 10px;
+      }
+      button {
+        width: 100%;
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Speed Dating Matcher</h1>
+    <!-- Input Panel: Enter lists of names -->
+    <div id="inputPanel">
+      <h3>Enter Attendees</h3>
+      <label for="menInput">List of Men (one per line):</label>
+      <textarea id="menInput" placeholder="Enter names here"></textarea>
+      <label for="womenInput">List of Women (one per line):</label>
+      <textarea id="womenInput" placeholder="Enter names here"></textarea>
+      <button id="startBtn">Start Matching</button>
+    </div>
+
+    <!-- Question Panel: Display questions for responses -->
+    <div id="questionPanel" class="hidden">
+      <h3 id="questionText"></h3>
+      <div style="text-align:center;">
+        <button id="yesBtn">Yes</button>
+        <button id="noBtn">No</button>
+      </div>
+      <p style="text-align:center; font-size: 14px;">(Use LEFT arrow for Yes and RIGHT arrow for No)</p>
+    </div>
+
+    <!-- Output Panel: Show matches -->
+    <div id="outputPanel" class="hidden">
+      <h3>Matches:</h3>
+      <textarea id="matchesOutput" readonly style="height:250px;"></textarea>
+    </div>
+  </div>
+
+  <script>
+    // Get DOM elements
+    const startBtn = document.getElementById('startBtn');
+    const inputPanel = document.getElementById('inputPanel');
+    const questionPanel = document.getElementById('questionPanel');
+    const outputPanel = document.getElementById('outputPanel');
+    const questionText = document.getElementById('questionText');
+    const yesBtn = document.getElementById('yesBtn');
+    const noBtn = document.getElementById('noBtn');
+    const matchesOutput = document.getElementById('matchesOutput');
+
+    // Global state variables
+    let men = [];
+    let women = [];
+    let currentRound = 1; // 1: men answering; 2: women answering
+    let currentManIndex = 0;
+    let currentWomanIndex = 0;
+    let menLikes = [];   // menLikes[i][j] indicates if man i likes woman j
+    let womenLikes = []; // womenLikes[j][i] indicates if woman j likes man i
+
+    // Initialize the preference arrays
+    function initLikes() {
+      menLikes = [];
+      for (let i = 0; i < men.length; i++) {
+        menLikes[i] = [];
+        for (let j = 0; j < women.length; j++) {
+          menLikes[i][j] = false;
+        }
+      }
+      womenLikes = [];
+      for (let j = 0; j < women.length; j++) {
+        womenLikes[j] = [];
+        for (let i = 0; i < men.length; i++) {
+          womenLikes[j][i] = false;
+        }
+      }
+    }
+
+    // Start the matching process
+    startBtn.addEventListener('click', () => {
+      // Split input names by newline and remove empty lines
+      men = document.getElementById('menInput').value.split('\n')
+               .map(s => s.trim()).filter(s => s);
+      women = document.getElementById('womenInput').value.split('\n')
+                 .map(s => s.trim()).filter(s => s);
+
+      if (men.length === 0 || women.length === 0) {
+        alert("Please enter at least one name for both men and women.");
+        return;
+      }
+
+      initLikes();
+      // Hide the input panel and show the question panel
+      inputPanel.classList.add('hidden');
+      questionPanel.classList.remove('hidden');
+
+      // Initialize round state
+      currentRound = 1;
+      currentManIndex = 0;
+      currentWomanIndex = 0;
+      askNextQuestion();
+    });
+
+    // Ask the next question based on the current state
+    function askNextQuestion() {
+      if (currentRound === 1) {
+        // Men answering questions about women
+        if (currentManIndex < men.length) {
+          if (currentWomanIndex < women.length) {
+            questionText.textContent = "Does " + men[currentManIndex] + " like " + women[currentWomanIndex] + "?";
+          } else {
+            // Proceed to next man in round 1
+            currentManIndex++;
+            currentWomanIndex = 0;
+            askNextQuestion();
+          }
+        } else {
+          // Completed round 1; start round 2
+          currentRound = 2;
+          currentWomanIndex = 0;
+          currentManIndex = 0;
+          askNextQuestion();
+        }
+      } else if (currentRound === 2) {
+        // Women answering questions about men
+        if (currentWomanIndex < women.length) {
+          if (currentManIndex < men.length) {
+            questionText.textContent = "Does " + women[currentWomanIndex] + " like " + men[currentManIndex] + "?";
+          } else {
+            // Proceed to next woman in round 2
+            currentWomanIndex++;
+            currentManIndex = 0;
+            askNextQuestion();
+          }
+        } else {
+          // Both rounds complete; compute and display matches
+          computeMatches();
+        }
+      }
+    }
+
+    // Record response and update state
+    function recordResponse(response) {
+      if (currentRound === 1) {
+        // Record man's response
+        menLikes[currentManIndex][currentWomanIndex] = response;
+        currentWomanIndex++;
+      } else if (currentRound === 2) {
+        // Record woman's response
+        womenLikes[currentWomanIndex][currentManIndex] = response;
+        currentManIndex++;
+      }
+      askNextQuestion();
+    }
+
+    yesBtn.addEventListener('click', () => recordResponse(true));
+    noBtn.addEventListener('click', () => recordResponse(false));
+
+    // Add keyboard support for arrow keys: LEFT arrow for "Yes", RIGHT arrow for "No"
+    document.addEventListener('keydown', function(e) {
+      // Only handle if the question panel is visible
+      if (!questionPanel.classList.contains('hidden')) {
+        if (e.key === "ArrowLeft") {
+          recordResponse(true);
+        } else if (e.key === "ArrowRight") {
+          recordResponse(false);
+        }
+      }
+    });
+
+    // Compute matches and format the output by man and by woman
+    function computeMatches() {
+      let output = "";
+
+      // Create men's match listings
+      output += "Matches by Men:\n";
+      for (let i = 0; i < men.length; i++) {
+        let matchedWomen = [];
+        for (let j = 0; j < women.length; j++) {
+          if (menLikes[i][j] && womenLikes[j][i]) {
+            matchedWomen.push(women[j]);
+          }
+        }
+        output += men[i] + ": " + (matchedWomen.length ? matchedWomen.join(", ") : "No matches") + "\n";
+      }
+
+      output += "\nMatches by Women:\n";
+      // Create women's match listings
+      for (let j = 0; j < women.length; j++) {
+        let matchedMen = [];
+        for (let i = 0; i < men.length; i++) {
+          if (menLikes[i][j] && womenLikes[j][i]) {
+            matchedMen.push(men[i]);
+          }
+        }
+        output += women[j] + ": " + (matchedMen.length ? matchedMen.join(", ") : "No matches") + "\n";
+      }
+
+      // Hide question panel and show output panel with results
+      questionPanel.classList.add('hidden');
+      outputPanel.classList.remove('hidden');
+      matchesOutput.value = output;
+    }
+  </script>
+</body>
+</html>
